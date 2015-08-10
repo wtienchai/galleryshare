@@ -15,6 +15,7 @@ All Rights Reserved.
 using System;
 using System.Data.Entity;
 using System.Linq;
+using System.Threading.Tasks;
 //using Microsoft.AspNet.SignalR;
 using Voat.Data.Models;
 
@@ -37,21 +38,22 @@ namespace Voat.Utilities
         }
 
         // a user has either upvoted or downvoted this submission earlier and wishes to reset the vote, delete the record
-        public static void ResetMessageVote(string userWhichVoted, int messageId)
+        public static async Task ResetMessageVote(string userWhichVoted, int messageId)
         {
             using (var db = new voatEntities())
             {
                 var votingTracker = db.Votingtrackers.FirstOrDefault(b => b.MessageId == messageId && b.UserName == userWhichVoted);
 
                 if (votingTracker == null) return;
-                //delete vote history
                 db.Votingtrackers.Remove(votingTracker);
-                db.SaveChanges();
+                await db.SaveChangesAsync();
+
+                // TODO: check if upvoted or downvoted before reset and update userscore accordingly
             }
         }
 
         // submit submission upvote
-        public static void UpvoteSubmission(int submissionId, string userWhichUpvoted, string clientIp)
+        public static async Task UpvoteSubmission(int submissionId, string userWhichUpvoted, string clientIp)
         {
             // user account voting check
             int result = CheckIfVoted(userWhichUpvoted, submissionId);
@@ -94,7 +96,9 @@ namespace Voat.Utilities
                             };
 
                             db.Votingtrackers.Add(tmpVotingTracker);
-                            db.SaveChanges();
+                            await db.SaveChangesAsync();
+
+                            await IncrementUserScp(submission.Name);
 
                             SendVoteNotification(submission.Name, "upvote");
                         }
@@ -122,7 +126,9 @@ namespace Voat.Utilities
                                 votingTracker.VoteStatus = 1;
                                 votingTracker.Timestamp = DateTime.Now;
                             }
-                            db.SaveChanges();
+                            await db.SaveChangesAsync();
+
+                            // TODO: increment user score by 2
 
                             SendVoteNotification(submission.Name, "downtoupvote");
                         }
@@ -141,7 +147,7 @@ namespace Voat.Utilities
                             submission.Rank = newRank;
                             db.SaveChanges();
 
-                            ResetMessageVote(userWhichUpvoted, submissionId);
+                            await ResetMessageVote(userWhichUpvoted, submissionId);
 
                             SendVoteNotification(submission.Name, "downvote");
                         }
@@ -153,7 +159,7 @@ namespace Voat.Utilities
         }
 
         // submit submission downvote
-        public static void DownvoteSubmission(int submissionId, string userWhichDownvoted, string clientIp)
+        public static async Task DownvoteSubmission(int submissionId, string userWhichDownvoted, string clientIp)
         {
             int result = CheckIfVoted(userWhichDownvoted, submissionId);
 
@@ -206,8 +212,9 @@ namespace Voat.Utilities
                                 ClientIpAddress = clientIp
                             };
                             db.Votingtrackers.Add(tmpVotingTracker);
-                            db.SaveChanges();
+                            await db.SaveChangesAsync();
 
+                            await DecrementUserScp(submission.Name);
                             SendVoteNotification(submission.Name, "downvote");
                         }
 
@@ -233,7 +240,7 @@ namespace Voat.Utilities
                                 votingTracker.VoteStatus = -1;
                                 votingTracker.Timestamp = DateTime.Now;
                             }
-                            db.SaveChanges();
+                            await db.SaveChangesAsync();
 
                             SendVoteNotification(submission.Name, "uptodownvote");
                         }
@@ -311,6 +318,58 @@ namespace Voat.Utilities
             //        }
             //        break;
             //}
+        }
+
+        public static async Task IncrementUserScp(string userName)
+        {
+            using (var db = new voatEntities())
+            {
+                var userScp = db.Userscores.FirstOrDefault(x => x.Username.Equals(userName, StringComparison.OrdinalIgnoreCase));
+
+                if (userScp == null)
+                {
+                    // initialize user score
+                    var newUserScoreEntry = new Userscore
+                    {
+                        CCP = 0,
+                        SCP = 1,
+                        Username = userName
+                    };
+                    db.Userscores.Add(newUserScoreEntry);
+                }
+                else
+                {
+                    userScp.SCP++;
+                }
+
+                await db.SaveChangesAsync();
+            }
+        }
+
+        public static async Task DecrementUserScp(string userName)
+        {
+            using (var db = new voatEntities())
+            {
+                var userScp = db.Userscores.FirstOrDefault(x => x.Username.Equals(userName, StringComparison.OrdinalIgnoreCase));
+
+                if (userScp == null)
+                {
+                    // initialize user score
+                    var newUserScoreEntry = new Userscore
+                    {
+                        CCP = 0,
+                        SCP = -1,
+                        Username = userName
+                    };
+                    db.Userscores.Add(newUserScoreEntry);
+                }
+                else
+                {
+                    userScp.SCP--;
+                }
+
+                await db.SaveChangesAsync();
+            }
         }
     }
 }

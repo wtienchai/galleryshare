@@ -49,6 +49,7 @@ namespace Voat.Utilities
         // get link contribution points for a user
         public static int LinkKarma(string userName)
         {
+            // TODO: try to get this value from userscore table before executing count
 
             string cacheKey = CacheKey(userName, KarmaCacheType.Link);
 
@@ -164,6 +165,7 @@ namespace Voat.Utilities
         // get comment contribution points for a user
         public static int CommentKarma(string userName)
         {
+            // TODO: try to get this value from userscore table before executing count
 
             string cacheKey = CacheKey(userName, KarmaCacheType.Comment);
 
