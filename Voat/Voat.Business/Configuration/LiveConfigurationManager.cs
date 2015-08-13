@@ -35,6 +35,8 @@ namespace Voat.Configuration
         public const string CacheDisabled = "cacheDisabled";
         public const string RegistrationDisabled = "registrationDisabled";
         public const string UseContentDeliveryNetwork = "useContentDeliveryNetwork";
+        public const string DistributedCacheServer = "distributedCacheServer";
+        public const string DistributedCacheServerKey = "distributedCacheServerKey";
     }
 
     public class LiveConfigurationManager
@@ -127,6 +129,8 @@ namespace Voat.Configuration
                 SetValueIfPresent<bool>(CONFIGURATION.CacheDisabled, section[CONFIGURATION.CacheDisabled]);
                 SetValueIfPresent<bool>(CONFIGURATION.RegistrationDisabled, section[CONFIGURATION.RegistrationDisabled]);
                 SetValueIfPresent<bool>(CONFIGURATION.UseContentDeliveryNetwork, section[CONFIGURATION.UseContentDeliveryNetwork]);
+                SetValueIfPresent<string>(CONFIGURATION.DistributedCacheServer, section[CONFIGURATION.DistributedCacheServer]);
+                SetValueIfPresent<string>(CONFIGURATION.DistributedCacheServerKey, section[CONFIGURATION.DistributedCacheServerKey]);
 
                 //HACK ATTACK
                 CacheHandler.CacheEnabled = !Settings.CacheDisabled;

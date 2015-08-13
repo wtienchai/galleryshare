@@ -18,6 +18,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Web;
 using System.Web.Mvc;
+using Voat.Business.Utilities;
 using Voat.Data.Models;
 using Voat.Models;
 using Voat.Models.ViewModels;
@@ -125,7 +126,8 @@ namespace Voat.Controllers
             }
 
             //wrap captcha check in anon method as following method is in non UI dll
-            var captchaCheck = new Func<HttpRequestBase, Task<bool>>(request => {
+            var captchaCheck = new Func<HttpRequestBase, Task<bool>>(request =>
+            {
                 return ReCaptchaUtility.Validate(request);
             });
 
@@ -331,35 +333,66 @@ namespace Voat.Controllers
                 }
                 else
                 {
-                    //IAmAGate: Perf mods for caching
+                    var redisCache = DistributedCacheHandler.Connection.GetDatabase();
                     string cacheKey = String.Format("front.guest.page.{0}.sort.rank", pageNumber);
-                    object cacheData = CacheHandler.Retrieve(cacheKey);
-                    if (cacheData == null)
+
+                    // if there is no cache data for this key, load data from database and add to cache
+                    if (!redisCache.KeyExists(cacheKey))
                     {
-
-                        var getDataFunc = new Func<object>(() =>
+                        using (voatEntities db = new voatEntities(CONSTANTS.CONNECTION_READONLY))
                         {
-                            using (voatEntities db = new voatEntities(CONSTANTS.CONNECTION_READONLY))
-                            {
+                            // disable lazy loading for related entities for serialization
+                            db.Configuration.LazyLoadingEnabled = false;
 
-                                // get only submissions from default subverses, order by rank
-                                IQueryable<Message> submissions = (from message in db.Messages.AsNoTracking()
-                                                                   where !message.IsArchived && message.Name != "deleted"
-                                                                   where !(from bu in db.Bannedusers select bu.Username).Contains(message.Name)
-                                                                   join defaultsubverse in db.Defaultsubverses on message.Subverse equals defaultsubverse.name
-                                                                   select message).OrderByDescending(s => s.Rank);
+                            // get only submissions from default subverses, order by rank
+                            IQueryable<Message> submissions = (from message in db.Messages.AsNoTracking()
+                                                               where !message.IsArchived && message.Name != "deleted"
+                                                               where !(from bu in db.Bannedusers select bu.Username).Contains(message.Name)
+                                                               join defaultsubverse in db.Defaultsubverses on message.Subverse equals defaultsubverse.name
+                                                               select message).OrderByDescending(s => s.Rank);
 
-                                return submissions.Where(s => s.Stickiedsubmission.Submission_id != s.Id).Skip(pageNumber * pageSize).Take(pageSize).ToList();
+                            var singlePageOfSubmissions = submissions.Where(s => s.Stickiedsubmission.Submission_id != s.Id).Skip(pageNumber * pageSize).Take(pageSize).ToList();
 
-                            }
-                        });
-                        //Now with it's own locking!
-                        cacheData = CacheHandler.Register(cacheKey, getDataFunc, TimeSpan.FromMinutes(CONSTANTS.DEFAULT_GUEST_PAGE_CACHE_MINUTES), (pageNumber < 3 ? 0 : 3));
+                            redisCache.Set(cacheKey, singlePageOfSubmissions);
+                            redisCache.KeyExpire(cacheKey, TimeSpan.FromMinutes(5));
+
+                            PaginatedList<Message> paginatedSubmissions = new PaginatedList<Message>(singlePageOfSubmissions, pageNumber, pageSize, 50000);
+                            return View(paginatedSubmissions);
+                        }
                     }
 
-                    PaginatedList<Message> paginatedSubmissions = new PaginatedList<Message>((IList<Message>)cacheData, pageNumber, pageSize, 50000);
+                    var retrievedCachedData = redisCache.Get<List<Message>>(cacheKey);
+                    PaginatedList<Message> paginatedSubmissionsExperimental = new PaginatedList<Message>(retrievedCachedData, pageNumber, pageSize, 50000);
+                    return View(paginatedSubmissionsExperimental);
 
-                    return View(paginatedSubmissions);
+                    //IAmAGate: Perf mods for caching
+                    //string cacheKey = String.Format("front.guest.page.{0}.sort.rank", pageNumber);
+                    //object cacheData = CacheHandler.Retrieve(cacheKey);
+                    //if (cacheData == null)
+                    //{
+                    //    var getDataFunc = new Func<object>(() =>
+                    //    {
+                    //        using (voatEntities db = new voatEntities(CONSTANTS.CONNECTION_READONLY))
+                    //        {
+
+                    //            // get only submissions from default subverses, order by rank
+                    //            IQueryable<Message> submissions = (from message in db.Messages.AsNoTracking()
+                    //                                               where !message.IsArchived && message.Name != "deleted"
+                    //                                               where !(from bu in db.Bannedusers select bu.Username).Contains(message.Name)
+                    //                                               join defaultsubverse in db.Defaultsubverses on message.Subverse equals defaultsubverse.name
+                    //                                               select message).OrderByDescending(s => s.Rank);
+
+                    //            return submissions.Where(s => s.Stickiedsubmission.Submission_id != s.Id).Skip(pageNumber * pageSize).Take(pageSize).ToList();
+
+                    //        }
+                    //    });
+                    //    //Now with it's own locking!
+                    //    cacheData = CacheHandler.Register(cacheKey, getDataFunc, TimeSpan.FromMinutes(CONSTANTS.DEFAULT_GUEST_PAGE_CACHE_MINUTES), (pageNumber < 3 ? 0 : 3));
+                    //}
+
+                    //PaginatedList<Message> paginatedSubmissions = new PaginatedList<Message>((IList<Message>)cacheData, pageNumber, pageSize, 50000);
+
+                    //return View(paginatedSubmissions);
                 }
             }
             catch (Exception)

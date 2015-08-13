@@ -1,4 +1,18 @@
-﻿using System;
+﻿/*
+This source file is subject to version 3 of the GPL license, 
+that is bundled with this package in the file LICENSE, and is 
+available online at http://www.gnu.org/licenses/gpl.txt; 
+you may not use this file except in compliance with the License. 
+
+Software distributed under the License is distributed on an "AS IS" basis,
+WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
+the specific language governing rights and limitations under the License.
+
+All portions of the code written by Voat are Copyright (c) 2014 Voat
+All Rights Reserved.
+*/
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Web.Caching;
@@ -9,7 +23,6 @@ namespace Voat.Utilities
 {
     public static class CacheHandler
     {
-
         public static class Keys {
 
             public static string CommentTree(int submissionID)
@@ -65,6 +78,7 @@ namespace Voat.Utilities
                 }
             }
         }
+        
         public static object Retrieve(string key) 
         {
             if (!String.IsNullOrEmpty(key)) 
@@ -78,6 +92,7 @@ namespace Voat.Utilities
             }
             return null;
         }
+        
         public static void Remove(string key)
         {
             if (!String.IsNullOrEmpty(key))
@@ -92,6 +107,7 @@ namespace Voat.Utilities
                 }
             }
         }
+        
         internal static object GetLockObject(string key) 
         {
             lock (sLock) {
@@ -106,7 +122,6 @@ namespace Voat.Utilities
                 return o;
             }
         }
-        
        
         /// <summary>
         /// Registers a function for cache. Locks by key and generates data for return from function
@@ -164,6 +179,7 @@ namespace Voat.Utilities
                 throw new ArgumentException("Keys can not be null or empty");
             }
         }
+        
         public static Task Refresh(string key) {
 
             var task = new Task(() => {
@@ -182,6 +198,7 @@ namespace Voat.Utilities
             return task;
 
         }
+        
         private static void RefetchItem(string key, CacheItemUpdateReason reason, out object value, out CacheDependency dependency, out DateTime exipriation, out TimeSpan slidingExpiration)
         {
             var meta = _meta[key];
@@ -222,6 +239,7 @@ namespace Voat.Utilities
                 Remove(key);
             }
         }
+        
         private static void ExpireItem(string key, object value, CacheItemRemovedReason reason)
         {
             try

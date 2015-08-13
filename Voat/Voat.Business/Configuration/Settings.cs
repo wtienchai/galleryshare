@@ -196,6 +196,20 @@ namespace Voat.Configuration
                 return (bool)configValues[CONFIGURATION.UseContentDeliveryNetwork];
             }
         }
+        public static string DistributedCacheServer
+        {
+            get
+            {
+                return (string)configValues[CONFIGURATION.DistributedCacheServer];
+            }
+        }
+        public static string DistributedCacheServerKey
+        {
+            get
+            {
+                return (string)configValues[CONFIGURATION.DistributedCacheServerKey];
+            }
+        }
         #endregion 
     }
 }
