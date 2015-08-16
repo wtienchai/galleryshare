@@ -61,6 +61,8 @@ namespace Voat.Utilities
                             db.Commentvotingtrackers.Add(tmpVotingTracker);
                             db.SaveChanges();
 
+                            Karma.UpdateUserCcp(comment.Name, 1);
+
                             Voting.SendVoteNotification(comment.Name, "upvote");
                         }
 
@@ -84,6 +86,8 @@ namespace Voat.Utilities
                             }
                             db.SaveChanges();
 
+                            Karma.UpdateUserCcp(comment.Name, 2);
+
                             Voting.SendVoteNotification(comment.Name, "downtoupvote");
                         }
 
@@ -94,6 +98,7 @@ namespace Voat.Utilities
 
                         comment.Likes--;
                         db.SaveChanges();
+                        Karma.UpdateUserCcp(comment.Name, -1);
 
                         Voting.SendVoteNotification(comment.Name, "downvote");
 
@@ -155,8 +160,10 @@ namespace Voat.Utilities
                         };
                         db.Commentvotingtrackers.Add(tmpVotingTracker);
                         db.SaveChanges();
+                        
+                        Karma.UpdateUserCcp(comment.Name, -1);
 
-                            Voting.SendVoteNotification(comment.Name, "downvote");
+                        Voting.SendVoteNotification(comment.Name, "downvote");
                     }
 
                         break;
@@ -166,7 +173,7 @@ namespace Voat.Utilities
 
                     {
                         comment.Likes--;
-                        comment.Dislikes++;                            
+                        comment.Dislikes++;
 
                         //register Turn DownVote To UpVote
                         var votingTracker = db.Commentvotingtrackers.FirstOrDefault(b => b.CommentId == commentId && b.UserName == userWhichDownvoted);
@@ -178,7 +185,9 @@ namespace Voat.Utilities
                         }
                         db.SaveChanges();
 
-                            Voting.SendVoteNotification(comment.Name, "uptodownvote");
+                        Karma.UpdateUserCcp(comment.Name, -2);
+
+                        Voting.SendVoteNotification(comment.Name, "uptodownvote");
                     }
 
                         break;
@@ -188,6 +197,8 @@ namespace Voat.Utilities
 
                         comment.Dislikes--;
                         db.SaveChanges();
+                        
+                        Karma.UpdateUserCcp(comment.Name, 1);
                         ResetCommentVote(userWhichDownvoted, commentId);
 
                         Voting.SendVoteNotification(comment.Name, "upvote");

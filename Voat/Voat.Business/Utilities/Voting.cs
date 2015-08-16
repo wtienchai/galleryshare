@@ -78,6 +78,7 @@ namespace Voat.Utilities
                             if (ipVotedAlready.Any()) return;
 
                             submission.Likes++;
+
                             double currentScore = submission.Likes - submission.Dislikes;
                             double submissionAge = Submissions.CalcSubmissionAgeDouble(submission.Date);
                             double newRank = Ranking.CalculateNewRank(submission.Rank, submissionAge, currentScore);
@@ -95,6 +96,8 @@ namespace Voat.Utilities
 
                             db.Votingtrackers.Add(tmpVotingTracker);
                             db.SaveChanges();
+
+                            Karma.UpdateUserScp(submission.Name, 1);
 
                             SendVoteNotification(submission.Name, "upvote");
                         }
@@ -124,6 +127,8 @@ namespace Voat.Utilities
                             }
                             db.SaveChanges();
 
+                            Karma.UpdateUserScp(submission.Name, 2);
+
                             SendVoteNotification(submission.Name, "downtoupvote");
                         }
 
@@ -140,6 +145,8 @@ namespace Voat.Utilities
 
                             submission.Rank = newRank;
                             db.SaveChanges();
+
+                            Karma.UpdateUserScp(submission.Name, -1);
 
                             ResetMessageVote(userWhichUpvoted, submissionId);
 
@@ -208,6 +215,8 @@ namespace Voat.Utilities
                             db.Votingtrackers.Add(tmpVotingTracker);
                             db.SaveChanges();
 
+                            Karma.UpdateUserScp(submission.Name, -1);
+
                             SendVoteNotification(submission.Name, "downvote");
                         }
 
@@ -235,6 +244,8 @@ namespace Voat.Utilities
                             }
                             db.SaveChanges();
 
+                            Karma.UpdateUserScp(submission.Name, -2);
+
                             SendVoteNotification(submission.Name, "uptodownvote");
                         }
 
@@ -251,6 +262,8 @@ namespace Voat.Utilities
 
                             submission.Rank = newRank;
                             db.SaveChanges();
+
+                            Karma.UpdateUserScp(submission.Name, 1);
 
                             ResetMessageVote(userWhichDownvoted, submissionId);
 

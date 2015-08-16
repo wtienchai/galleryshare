@@ -13,6 +13,7 @@ All Rights Reserved.
 */
 
 using System;
+using System.Linq;
 using System.Web.Caching;
 using Voat.Data.Models;
 
@@ -49,7 +50,6 @@ namespace Voat.Utilities
         // get link contribution points for a user
         public static int LinkKarma(string userName)
         {
-
             string cacheKey = CacheKey(userName, KarmaCacheType.Link);
 
             object cacheData = Cache[cacheKey];
@@ -58,10 +58,17 @@ namespace Voat.Utilities
                 return (int)cacheData;
             }
 
-
             int count = 0;
             using (voatEntities db = new voatEntities())
             {
+                // try to get SCP from storage
+                var storedUserScp = db.Userscores.FirstOrDefault(x => x.Username.Equals(userName, StringComparison.OrdinalIgnoreCase));
+                if (storedUserScp != null)
+                {
+                    // add SCP value to cache
+                    Cache.Insert(cacheKey, storedUserScp.SCP, null, DateTime.Now.AddSeconds(cacheTimeInSeconds), Cache.NoSlidingExpiration);
+                    return storedUserScp.SCP;
+                }
 
                 var cmd = db.Database.Connection.CreateCommand();
                 cmd.CommandText = "SELECT ISNULL(SUM(Likes - Dislikes), 0) FROM Messages WITH (NOLOCK) WHERE Name = @Name";
@@ -77,13 +84,11 @@ namespace Voat.Utilities
                 }
                 long l = (long)cmd.ExecuteScalar();
                 count = (int)l;
+                // add SCP value to cache
                 Cache.Insert(cacheKey, count, null, DateTime.Now.AddSeconds(cacheTimeInSeconds), System.Web.Caching.Cache.NoSlidingExpiration);
-
             }
 
-
             return count;
-
 
             //using (var db = new voatEntities())
             //{
@@ -103,7 +108,6 @@ namespace Voat.Utilities
         // get link contribution points for a user from a given subverse
         public static int LinkKarmaForSubverse(string userName, string subverseName)
         {
-
             string cacheKey = CacheKey(userName, KarmaCacheType.SubverseLink, subverseName);
 
             object cacheData = Cache[cacheKey];
@@ -112,11 +116,9 @@ namespace Voat.Utilities
                 return (int)cacheData;
             }
 
-
             int count = 0;
             using (voatEntities db = new voatEntities())
             {
-
                 var cmd = db.Database.Connection.CreateCommand();
                 cmd.CommandText = "SELECT ISNULL(SUM(Likes - Dislikes), 0) FROM Messages WITH (NOLOCK) WHERE Name = @Name AND Subverse = @Subverse";
 
@@ -138,13 +140,12 @@ namespace Voat.Utilities
                 }
                 long l = (long)cmd.ExecuteScalar();
                 count = (int)l;
-                Cache.Insert(cacheKey, count, null, DateTime.Now.AddSeconds(cacheTimeInSeconds), System.Web.Caching.Cache.NoSlidingExpiration);
 
+                // add SCP value to cache
+                Cache.Insert(cacheKey, count, null, DateTime.Now.AddSeconds(cacheTimeInSeconds), System.Web.Caching.Cache.NoSlidingExpiration);
             }
 
-
             return count;
-
 
             //using (var db = new voatEntities())
             //{
@@ -164,7 +165,6 @@ namespace Voat.Utilities
         // get comment contribution points for a user
         public static int CommentKarma(string userName)
         {
-
             string cacheKey = CacheKey(userName, KarmaCacheType.Comment);
 
             object cacheData = Cache[cacheKey];
@@ -173,10 +173,17 @@ namespace Voat.Utilities
                 return (int)cacheData;
             }
 
-
             int count = 0;
             using (voatEntities db = new voatEntities())
             {
+                // try to get CCP from storage
+                var storedUserCcp = db.Userscores.FirstOrDefault(x => x.Username.Equals(userName, StringComparison.OrdinalIgnoreCase));
+                if (storedUserCcp != null)
+                {
+                    // add CCP value to cache
+                    Cache.Insert(cacheKey, storedUserCcp.CCP, null, DateTime.Now.AddSeconds(cacheTimeInSeconds), Cache.NoSlidingExpiration);
+                    return storedUserCcp.CCP;
+                }
 
                 var cmd = db.Database.Connection.CreateCommand();
                 cmd.CommandText = "SELECT ISNULL(SUM(Likes - Dislikes), 0) FROM Comments WITH (NOLOCK) WHERE Name = @Name";
@@ -193,8 +200,8 @@ namespace Voat.Utilities
                 }
                 long l = (long)cmd.ExecuteScalar();
                 count = (int)l;
+                // add CCP value to cache
                 Cache.Insert(cacheKey, count, null, DateTime.Now.AddSeconds(cacheTimeInSeconds), System.Web.Caching.Cache.NoSlidingExpiration);
-
             }
 
 
@@ -340,6 +347,58 @@ namespace Voat.Utilities
             //        return 0;
             //    }
             //}
+        }
+
+        // update user CCP
+        public static void UpdateUserCcp(string userName, int value)
+        {
+            using (voatEntities db = new voatEntities())
+            {
+                var storedUserCcp = db.Userscores.FirstOrDefault(x => x.Username.Equals(userName, StringComparison.OrdinalIgnoreCase));
+
+                if (storedUserCcp == null)
+                {
+                    var newUserScoreEntry = new Userscore
+                    {
+                        CCP = CommentKarma(userName) + value,
+                        SCP = LinkKarma(userName),
+                        Username = userName
+                    };
+                    db.Userscores.Add(newUserScoreEntry);
+                }
+                else
+                {
+                    storedUserCcp.CCP = storedUserCcp.CCP + value;
+                }
+
+                db.SaveChanges();
+            }
+        }
+
+        // update user SCP
+        public static void UpdateUserScp(string userName, int value)
+        {
+            using (voatEntities db = new voatEntities())
+            {
+                var storedUserScp = db.Userscores.FirstOrDefault(x => x.Username.Equals(userName, StringComparison.OrdinalIgnoreCase));
+
+                if (storedUserScp == null)
+                {
+                    var newUserScoreEntry = new Userscore
+                    {
+                        CCP = CommentKarma(userName),
+                        SCP = LinkKarma(userName) + value,
+                        Username = userName
+                    };
+                    db.Userscores.Add(newUserScoreEntry);
+                }
+                else
+                {
+                    storedUserScp.SCP = storedUserScp.SCP + value;
+                }
+
+                db.SaveChanges();
+            }
         }
     }
 
